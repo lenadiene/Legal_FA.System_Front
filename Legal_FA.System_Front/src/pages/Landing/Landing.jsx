@@ -138,88 +138,92 @@ const [isModalOpen, setIsModalOpen] = useState(false);
       A nova era do <br /> Direito é visual.
     </h2>
 
-    {/* CARDS */}
-    <div className="
-      flex 
-      justify-center 
-      items-stretch 
-      gap-[50px]
-      xl:gap-[200px]
-      2xl:gap-[220px]
-    ">
+{/* CARDS */}
+<div className="
+  flex 
+  justify-center 
+  items-stretch 
+  gap-12
+  flex-wrap
+">
 
-      {[
-        {
-          icon: <Zap size={42} />,
-          title: "Velocidade",
-          desc: "Feche os seus contratos até 3x mais rápido com fluxos inteligentes e automações na geração."
-        },
-        {
-          icon: <BarChart3 size={42} />,
-          title: "Inteligência",
-          desc: "Seus contratos transformados em arquivos com visões estratégicas claras e acionáveis."
-        },
-        {
-          icon: <Globe size={42} />,
-          title: "Padronizado ",
-          desc: "Clareza nas documentações, pronta para operações jurídicas em grandes escalas e negociações."
-        }
-      ].map((item, i) => (
-        <div
-          key={i}
-          className="
-            group
-            relative
-            w-[440px]
-            h-[300px]
-            2xl:w-[480px]
-            rounded-[60px]
-            px-24 
-            py-40
+  {[
+    {
+      icon: <Zap size={60} />,
+      title: "Velocidade",
+      desc: "Feche os seus contratos até 3x mais rápido com fluxos inteligentes e automações na geração."
+    },
+    {
+      icon: <BarChart3 size={60} />,
+      title: "Inteligência",
+      desc: "Seus contratos transformados em arquivos com visões estratégicas claras e acionáveis."
+    },
+    {
+      icon: <Globe size={60} />,
+      title: "Padronizado",
+      desc: "Clareza nas documentações, pronta para operações jurídicas em grandes escalas e negociações."
+    }
+  ].map((item, i) => (
+    <div
+      key={i}
+      className="
+        group
+        relative
+        w-full
+        sm:w-[480px]
+        md:w-[580px]
+        lg:w-[650px]
+        xl:w-[700px]
+        2xl:w-[750px]
+        min-h-[400px] 
+        rounded-[60px]
+        px-12 
+        py-16
+        bg-metal
+        border 
+        border-white/20
+        shadow-[0_70px_200px_rgba(0,0,0,0.9)]
+        transition-all 
+        duration-700
+        hover:-translate-y-6
+        flex 
+        flex-col 
+        justify-center
+        items-center 
+        text-center
+        overflow-hidden
+        mb-8
+      "
+    >
+      {/* Reflexo metálico no hover */}
+      <div className="
+        pointer-events-none
+        absolute 
+        inset-0 
+        opacity-0 
+        group-hover:opacity-100
+        transition-opacity 
+        duration-700
+        bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent)]
+        animate-metallic
+      " />
 
-            bg-metal
-            border 
-            border-white/20
-            shadow-[0_70px_200px_rgba(0,0,0,0.9)]
-            transition-all 
-            duration-700
-            hover:-translate-y-6
-            flex 
-            flex-col 
-            justify-center
-            items-center 
-            text-center
-            overflow-hidden
-          "
-        >
-          {/* Reflexo metálico no hover */}
-          <div className="
-            pointer-events-none
-            absolute 
-            inset-0 
-            opacity-0 
-            group-hover:opacity-100
-            transition-opacity 
-            duration-700
-            bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent)]
-            animate-metallic
-          " />
+      <div className="metallic-icon mb-8 relative z-10">
+        {item.icon}
+      </div>
 
-          <div className="metallic-icon mb-16 relative z-10">
-            {item.icon}
-          </div>
+      <h3 className="text-4xl md:text-5xl font-bold mb-6 text-white relative z-10">
+        {item.title}
+      </h3>
 
-          <h3 className="text-3xl font-bold mb-8 text-white relative z-10">
-            {item.title}
-          </h3>
-
-          <p className="text-gray-300 text-lg leading-relaxed font-light relative z-10">
-            {item.desc}
-          </p>
-        </div>
-      ))}
-
+      <p className="text-gray-300 text-lg md:text-xl leading-relaxed font-light relative z-10 px-4">
+        {item.desc}
+      </p>
     </div>
+  ))}
+</div>
+
+
   </div>
 </section>
 

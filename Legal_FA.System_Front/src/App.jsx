@@ -5,6 +5,8 @@ import Cadastro from './pages/Cadastro/Cadastro'
 import Home from './pages/Home/Home'
 import MeusContratos from './pages/Contratos/MeusContratos'
 import NovoContrato from './pages/Contratos/NovoContrato'
+import VisualizarContrato from './pages/Contratos/VisualizarContrato'
+import EditarContrato from './pages/Contratos/EditarContrato'
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/contratos" element={<MeusContratos />} />
         <Route path="/contratos/novo" element={<NovoContrato />} />
+        <Route path="/contratos/:id" element={<VisualizarContrato />} />
+        <Route path="/contratos/:id/editar" element={<EditarContrato />} />
       </Routes>
     </BrowserRouter>
   )
