@@ -1,33 +1,39 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowLeft } from 'lucide-react'
+import { login } from "../../services/api"
+
 
 function Login() {
   const navigate = useNavigate()
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     setIsLoading(true)
-    
-    console.log('Dados de Login:', { username, password })
-    
-    setTimeout(() => {
-      localStorage.setItem('user', JSON.stringify({
+
+    try {
+      const token = await login({
         email: username,
-        role: 'advogado'
-      }))
-      setIsLoading(false)
+        password: password
+      })
+
+      localStorage.setItem('token', token)
       navigate('/home')
-    }, 1000)
+    } catch (error) {
+      alert('Login ou senha inválidos')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4 relative">
-      
-      {/* Botão Voltar - Fixo no canto superior esquerdo */}
+
+      {/* Botão Voltar */}
       <button
         onClick={() => navigate('/')}
         className="fixed top-6 left-6 flex items-center gap-2 text-gray-400 hover:text-white transition z-50"
@@ -36,16 +42,18 @@ function Login() {
         <span className="text-sm font-medium">Voltar</span>
       </button>
 
-      {/* Card Centralizado */}
+      {/* Card */}
       <div className="w-full max-w-md mx-auto">
-        <form onSubmit={handleSubmit} className="bg-gray-800/50 backdrop-blur-sm rounded-3xl shadow-2xl p-10 border border-gray-700">
-          
-          {/* Título */}
+        <form
+          onSubmit={handleSubmit}
+          className="bg-gray-800/50 backdrop-blur-sm rounded-3xl shadow-2xl p-10 border border-gray-700"
+        >
+
           <h1 className="text-2xl font-bold text-white text-center mb-10">
             Acesse o sistema
           </h1>
 
-          {/* Campo E-mail */}
+          {/* Email */}
           <div className="mb-6">
             <div className="relative">
               <input
@@ -60,7 +68,7 @@ function Login() {
             </div>
           </div>
 
-          {/* Campo Senha */}
+          {/* Senha */}
           <div className="mb-6">
             <div className="relative">
               <input
@@ -77,16 +85,16 @@ function Login() {
 
           {/* Lembre-me */}
           <div className="flex items-center mb-8">
-            <label className="flex items-center gap-2 cursor-pointer text-gray-300 hover:text-white transition">
-              <input 
-                type="checkbox" 
-                className="w-[15px] h-[15px] rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500 cursor-pointer"
+            <label className="flex items-center gap-2 cursor-pointer text-gray-300">
+              <input
+                type="checkbox"
+                className="w-[15px] h-[15px] rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500"
               />
               <span className="text-sm">Lembre de mim</span>
             </label>
           </div>
 
-          {/* Botão de Login */}
+          {/* Botão */}
           <button
             type="submit"
             disabled={isLoading}
@@ -95,7 +103,7 @@ function Login() {
             {isLoading ? 'Entrando...' : 'Login'}
           </button>
 
-          {/* Link para Registro */}
+          {/* Registro */}
           <div className="mt-8 text-center">
             <p className="text-gray-400 text-sm">
               Não tem uma conta?{' '}
@@ -108,9 +116,9 @@ function Login() {
               </button>
             </p>
           </div>
+
         </form>
 
-        {/* Footer */}
         <p className="text-center text-gray-500 text-xs mt-6">
           Legal FA.System © 2026
         </p>

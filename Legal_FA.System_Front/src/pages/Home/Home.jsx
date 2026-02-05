@@ -26,13 +26,13 @@ function Home() {
 
   useEffect(() => {
     // Carregar dados do localStorage
-    const userData = localStorage.getItem('user')
+    const token = localStorage.getItem('token')
     const empresaData = localStorage.getItem('empresa')
     const usuariosData = localStorage.getItem('usuarios')
 
-    if (!userData) {
-      navigate('/login')
-      return
+    if (!token) {
+  navigate('/login')
+  return
     }
 
     const parsedUser = JSON.parse(userData)

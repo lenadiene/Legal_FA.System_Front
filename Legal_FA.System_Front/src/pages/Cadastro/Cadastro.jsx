@@ -1,6 +1,12 @@
+import { criarEmpresa, registrarUsuario } from '../../services/api'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Mail, Lock, User, Phone, MapPin, FileText, ArrowLeft, Upload, Image } from 'lucide-react'
+
+const limparBase64 = (base64) => {
+  if (!base64) return null
+  return base64.split(',')[1]
+}
 
 function Cadastro() {
   const navigate = useNavigate()
@@ -31,11 +37,22 @@ function Cadastro() {
     const { name, value } = e.target
     setEmpresaData(prev => ({ ...prev, [name]: value }))
   }
+const [senhaValida, setSenhaValida] = useState(false)
 
-  const handleRepresentanteChange = (e) => {
-    const { name, value } = e.target
-    setRepresentanteData(prev => ({ ...prev, [name]: value }))
+const validarSenha = (senha) => {
+  // Regex: 1 maiúscula, 1 minúscula, 1 número, 1 especial
+  const regex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{6,}$/
+  return regex.test(senha)
+}
+const handleRepresentanteChange = (e) => {
+  const { name, value } = e.target
+  setRepresentanteData(prev => ({ ...prev, [name]: value }))
+  
+  if (name === 'senha') {
+    setSenhaValida(validarSenha(value))
   }
+}
+
 
   const handleLogoCabecalhoChange = (e) => {
     const file = e.target.files[0]
@@ -66,38 +83,68 @@ function Cadastro() {
     setCurrentStep(2)
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  
+  if (representanteData.senha !== representanteData.confirmarSenha) {
+    alert('As senhas não coincidem!')
+    return
+  }
+  
+  setIsLoading(true)
+  
+  try {
+    // PASSO 1: Criar Empresa
+    console.log('📤 Criando empresa...')
     
-    if (representanteData.senha !== representanteData.confirmarSenha) {
-      alert('As senhas não coincidem!')
-      return
-    }
-    
-    setIsLoading(true)
-    
-    console.log('Cadastro Completo:', { 
-      empresa: empresaData, 
-      representante: representanteData 
+    const empresaCriada = await criarEmpresa({
+      razaoSocial: empresaData.razaoSocial,
+      cnpj: empresaData.cnpj,
+      emailCorporativo: empresaData.emailCorporativo,
+      telefone: empresaData.telefone,
+      endereco: empresaData.endereco,
+      logoCabecalho: limparBase64(logoCabecalhoPreview),
+      logoRodape: limparBase64(logoRodapePreview)
     })
     
-    // Simular upload e cadastro
-    setTimeout(() => {
-      localStorage.setItem('empresa', JSON.stringify({
-        ...empresaData,
-        logoCabecalho: logoCabecalhoPreview,
-        logoRodape: logoRodapePreview
-      }))
-      localStorage.setItem('user', JSON.stringify({
-        nome: representanteData.nome,
-        login: representanteData.login,
-        role: 'representante',
-        isRepresentante: true
-      }))
-      setIsLoading(false)
-      navigate('/home')
-    }, 1500)
+    const empresaId = empresaCriada.id
+    console.log('✅ Empresa criada com ID:', empresaId)
+
+    // PASSO 2: Registrar Representante
+    console.log('📤 Registrando representante...')
+    
+    await registrarUsuario({
+      nome: representanteData.nome,
+      login: representanteData.login,
+      senha: representanteData.senha
+    }, empresaId)
+    
+    console.log('✅ Representante registrado!')
+
+    // Salvar dados localmente
+    localStorage.setItem('empresa', JSON.stringify({
+      id: empresaId,
+      ...empresaCriada
+    }))
+    
+    localStorage.setItem('user', JSON.stringify({
+      nome: representanteData.nome,
+      login: representanteData.login,
+      role: 'gestor',
+      isRepresentante: true,
+      empresaId: empresaId
+    }))
+    
+    alert('✅ Cadastro realizado com sucesso!')
+    navigate('/home')
+    
+  } catch (error) {
+    console.error('❌ Erro no cadastro:', error)
+    alert(`Erro: ${error.message}`)
+  } finally {
+    setIsLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4 relative">
@@ -334,23 +381,44 @@ function Cadastro() {
               </div>
 
               {/* Senha */}
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Senha *</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    name="senha"
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                    value={representanteData.senha}
-                    onChange={handleRepresentanteChange}
-                    className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-xl pl-11 pr-4 py-3 text-base focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition placeholder:text-gray-400"
-                  />
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Mínimo de 6 caracteres</p>
-              </div>
+<div>
+  <label className="block text-sm text-gray-300 mb-2">Senha *</label>
+  <div className="relative">
+    <input
+      type="password"
+      name="senha"
+      placeholder="••••••••"
+      required
+      minLength={6}
+      value={representanteData.senha}
+      onChange={handleRepresentanteChange}
+      className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-xl pl-11 pr-4 py-3"
+    />
+    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+  </div>
+  
+  {/* Indicadores de Validação */}
+  <div className="mt-2 space-y-1">
+    <p className="text-xs text-gray-400">A senha deve conter:</p>
+    <div className="flex flex-col gap-1 text-xs">
+      <span className={representanteData.senha.length >= 6 ? 'text-green-400' : 'text-gray-500'}>
+        ✓ Mínimo 6 caracteres
+      </span>
+      <span className={/[A-Z]/.test(representanteData.senha) ? 'text-green-400' : 'text-gray-500'}>
+        ✓ Uma letra maiúscula
+      </span>
+      <span className={/[a-z]/.test(representanteData.senha) ? 'text-green-400' : 'text-gray-500'}>
+        ✓ Uma letra minúscula
+      </span>
+      <span className={/[0-9]/.test(representanteData.senha) ? 'text-green-400' : 'text-gray-500'}>
+        ✓ Um número
+      </span>
+      <span className={/[@#$%^&+=!]/.test(representanteData.senha) ? 'text-green-400' : 'text-gray-500'}>
+        ✓ Um caractere especial (@#$%^&+=!)
+      </span>
+    </div>
+  </div>
+</div>
 
               {/* Confirmar Senha */}
               <div>
