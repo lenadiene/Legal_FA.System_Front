@@ -91,34 +91,46 @@ function NovoContrato() {
     setContratoData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  setIsLoading(true)
 
-    // Criar novo contrato
+  try {
+    const token = localStorage.getItem('token')
+    
     const novoContrato = {
-      id: Date.now(),
       titulo: `Contrato de Prestação de Serviços - ${contratoData.nome_prestador}`,
-      status: 'ativo',
-      dataCriacao: new Date().toISOString().split('T')[0],
-      dataAtualizacao: new Date().toISOString().split('T')[0],
-      criadoPor: user.nome,
-      tipo: 'Prestação de Serviços',
+      empresaId: user.empresaId,
+      funcionarioResponsavelId: user.funcionarioId,
+      templateId: 1, // ID do template "Prestação de Serviços"
       dados: contratoData
     }
 
-    // Salvar no localStorage
-    const contratosExistentes = JSON.parse(localStorage.getItem('contratos') || '[]')
-    const novosContratos = [...contratosExistentes, novoContrato]
-    localStorage.setItem('contratos', JSON.stringify(novosContratos))
+    const response = await fetch('http://localhost:8080/api/contratos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(novoContrato)
+    })
 
-    setTimeout(() => {
-      setIsLoading(false)
-      alert('Contrato criado com sucesso!')
-      navigate('/contratos')
-    }, 1000)
+    if (!response.ok) {
+      throw new Error('Erro ao criar contrato')
+    }
+
+    const contratoСriado = await response.json()
+    
+    alert('✅ Contrato criado com sucesso!')
+    navigate('/contratos')
+    
+  } catch (error) {
+    console.error('❌ Erro:', error)
+    alert(`Erro: ${error.message}`)
+  } finally {
+    setIsLoading(false)
   }
-
+}
   if (!user) return null
 
   return (

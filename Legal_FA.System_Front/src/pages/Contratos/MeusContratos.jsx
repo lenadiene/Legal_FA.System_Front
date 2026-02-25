@@ -1,130 +1,79 @@
-// MeusContratos.jsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, Eye, Edit2, Trash2, Printer, ArrowLeft, Search, Filter } from 'lucide-react'
-
+import { FileText, Plus, Eye, Edit2, Trash2, Download, ArrowLeft, Search, Filter } from 'lucide-react' 
 function MeusContratos() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [contratos, setContratos] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('todos')
+  const [downloadingId, setDownloadingId] = useState(null)
+// Função para verificar se o token expirou e redirecionar
+  const verificarTokenExpirado = (error) => {
+    // Verifica se é erro 403 (Forbidden) ou 401 (Unauthorized)
+    if (error.message?.includes('403') || error.message?.includes('401') || 
+        error.status === 403 || error.status === 401) {
+      
+      console.log('🔐 Token expirado ou inválido! Redirecionando para login...')
+      
+      // Limpar dados do localStorage
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      
+      // Redirecionar para login
+      navigate('/login')
+      return true
+    }
+    return false
+  }
 
   useEffect(() => {
-    // Verificar autenticação
-    const userData = localStorage.getItem('user')
-    if (!userData) {
-      navigate('/login')
-      return
+    const carregarContratos = async () => {
+      const userData = localStorage.getItem('user')
+      if (!userData) {
+        navigate('/login')
+        return
+      }
+
+      const parsedUser = JSON.parse(userData)
+      setUser(parsedUser)
+
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(
+          `http://localhost:8080/api/contratos/empresa/${parsedUser.empresaId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        )
+
+        if (!response.ok) throw new Error('Erro ao carregar contratos')
+
+        const data = await response.json()
+        
+        // Transformar para formato da tela
+        const contratosFormatados = data.map(c => ({
+          id: c.id,
+          titulo: c.titulo,
+          status: c.status,
+          dataCriacao: c.dataCriacao.split('T')[0],
+          dataAtualizacao: c.dataAtualizacao?.split('T')[0] || c.dataCriacao.split('T')[0],
+          criadoPor: c.criadoPor,
+          tipo: c.tipo,
+          dados: c.dados
+        }))
+
+        setContratos(contratosFormatados)
+        
+      } catch (error) {
+        console.error('Erro:', error)
+        setContratos([])
+      }
     }
 
-    const parsedUser = JSON.parse(userData)
-    setUser(parsedUser)
-
-    // Carregar contratos
-    const contratosData = localStorage.getItem('contratos')
-    if (contratosData) {
-      setContratos(JSON.parse(contratosData))
-    } else {
-      // Mock de contratos com "dados"
-      const mockContratos = [
-        {
-          id: 1,
-          titulo: 'Contrato de Prestação de Serviços - Empresa Alpha',
-          status: 'ativo',
-          dataCriacao: '2026-01-15',
-          dataAtualizacao: '2026-01-20',
-          criadoPor: 'João Silva',
-          tipo: 'Prestação de Serviços',
-          dados: {
-            nome_empresa: 'Empresa Alpha',
-            cnpj_empresa: '12.345.678/0001-90',
-            endereco_empresa: 'Rua A, 123, São Paulo',
-            nome_prestador: 'Pedro Souza',
-            documento_prestador: '123.456.789-00',
-            endereco_prestador: 'Rua B, 456, São Paulo',
-            descricao_servico: 'Consultoria em TI',
-            data_inicio: '2026-02-01',
-            data_fim: '2026-03-01',
-            valor_total: '5000',
-            multa_atraso: '10',
-            forma_pagamento: 'Transferência',
-            prazo_pagamento: '30 dias',
-            obrigacoes_prestador: 'Entregar relatório semanal',
-            obrigacoes_contratante: 'Fornecer informações necessárias',
-            clausula_confidencialidade: 'Não divulgar informações',
-            condicoes_rescisao: 'Aviso prévio de 30 dias',
-            cidade_foro: 'São Paulo',
-            cidade_assinatura: 'São Paulo',
-            data_assinatura: '2026-01-15'
-          }
-        },
-        {
-          id: 2,
-          titulo: 'Contrato de Locação Comercial - Beta Corp',
-          status: 'pendente',
-          dataCriacao: '2026-01-10',
-          dataAtualizacao: '2026-01-18',
-          criadoPor: 'Maria Santos',
-          tipo: 'Locação',
-          dados: {
-            nome_empresa: 'Beta Corp',
-            cnpj_empresa: '98.765.432/0001-12',
-            endereco_empresa: 'Av. Central, 200, Rio de Janeiro',
-            nome_prestador: 'Ana Lima',
-            documento_prestador: '987.654.321-00',
-            endereco_prestador: 'Rua C, 789, Rio de Janeiro',
-            descricao_servico: 'Locação de espaço comercial',
-            data_inicio: '2026-02-05',
-            data_fim: '2026-08-05',
-            valor_total: '12000',
-            multa_atraso: '5',
-            forma_pagamento: 'Boleto',
-            prazo_pagamento: 'Mensal',
-            obrigacoes_prestador: 'Disponibilizar espaço limpo e seguro',
-            obrigacoes_contratante: 'Efetuar pagamentos em dia',
-            clausula_confidencialidade: 'Não compartilhar dados de clientes',
-            condicoes_rescisao: 'Aviso prévio de 60 dias',
-            cidade_foro: 'Rio de Janeiro',
-            cidade_assinatura: 'Rio de Janeiro',
-            data_assinatura: '2026-01-12'
-          }
-        },
-        {
-          id: 3,
-          titulo: 'Contrato de Consultoria Jurídica - Gamma Ltd',
-          status: 'ativo',
-          dataCriacao: '2026-01-05',
-          dataAtualizacao: '2026-01-22',
-          criadoPor: 'Pedro Costa',
-          tipo: 'Consultoria',
-          dados: {
-            nome_empresa: 'Gamma Ltd',
-            cnpj_empresa: '11.222.333/0001-44',
-            endereco_empresa: 'Rua D, 456, Belo Horizonte',
-            nome_prestador: 'Carlos Alberto',
-            documento_prestador: '111.222.333-44',
-            endereco_prestador: 'Av. E, 321, Belo Horizonte',
-            descricao_servico: 'Consultoria jurídica especializada',
-            data_inicio: '2026-02-10',
-            data_fim: '2026-04-10',
-            valor_total: '8000',
-            multa_atraso: '15',
-            forma_pagamento: 'Pix',
-            prazo_pagamento: '15 dias',
-            obrigacoes_prestador: 'Fornecer parecer jurídico',
-            obrigacoes_contratante: 'Fornecer documentação necessária',
-            clausula_confidencialidade: 'Não divulgar informações do cliente',
-            condicoes_rescisao: 'Rescisão imediata em caso de descumprimento',
-            cidade_foro: 'Belo Horizonte',
-            cidade_assinatura: 'Belo Horizonte',
-            data_assinatura: '2026-01-05'
-          }
-        }
-      ]
-      setContratos(mockContratos)
-      localStorage.setItem('contratos', JSON.stringify(mockContratos))
-    }
+    carregarContratos()
   }, [navigate])
 
   // Permissões
@@ -132,35 +81,105 @@ function MeusContratos() {
   const canEdit = user?.role !== 'estagiario'
   const canDelete = user?.role === 'gestor' || user?.role === 'admin' || user?.isRepresentante
   const canView = true
-  const canPrint = true
+  const canDownload = true
 
-  // Ações
-  const handleView = (contratoId) => navigate(`/contratos/${contratoId}`)
-  const handleEdit = (contratoId) => navigate(`/contratos/${contratoId}/editar`)
-  const handleDelete = (contratoId) => {
-    if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
-      const updated = contratos.filter(c => c.id !== contratoId)
-      setContratos(updated)
-      localStorage.setItem('contratos', JSON.stringify(updated))
-      alert('Contrato excluído com sucesso!')
+  // ============= FUNÇÕES DE AÇÃO =============
+  
+  // ✅ Função para criar novo contrato
+  const handleCreateNew = () => {
+    navigate('/contratos/novo')
+  }
+
+  // ✅ Função para visualizar contrato
+  const handleView = (contratoId) => {
+    navigate(`/contratos/${contratoId}`)
+  }
+
+  // ✅ Função para editar contrato
+  const handleEdit = (contratoId) => {
+    navigate(`/contratos/${contratoId}/editar`)
+  }
+
+  // ✅ Função para excluir contrato
+  const handleDelete = async (contratoId) => {
+    if (!window.confirm('Tem certeza que deseja excluir este contrato?')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:8080/api/contratos/${contratoId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) throw new Error('Erro ao deletar contrato')
+
+      setContratos(contratos.filter(c => c.id !== contratoId))
+      alert('✅ Contrato excluído com sucesso!')
+      
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('Erro ao excluir contrato')
     }
   }
-  const handlePrint = (contrato) => alert(`Imprimindo contrato: ${contrato.titulo}`)
-  const handleCreateNew = () => navigate('/contratos/novo')
+
+  // ✅ Função para download do PDF
+const handleDownload = (contrato) => {
+  // Redireciona para a página de PDF passando a origem
+  navigate(`/contratos/${contrato.id}/pdf`, { 
+    state: { from: '/contratos' } 
+  })
+}
+
 
   // Filtrar contratos
   const filteredContratos = contratos.filter(c => {
-    const matchSearch = c.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || c.tipo.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchSearch = c.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                       c.tipo.toLowerCase().includes(searchTerm.toLowerCase())
     const matchStatus = filterStatus === 'todos' || c.status === filterStatus
     return matchSearch && matchStatus
   })
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'ativo': return 'bg-green-500/20 text-green-400 border-green-500/30'
-      case 'pendente': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-      case 'inativo': return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+  // Função: Retorna cor e emoji para cada status
+  const getStatusConfig = (status) => {
+    const statusMap = {
+      'RASCUNHO': {
+        color: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+        emoji: '📝',
+        label: 'Rascunho'
+      },
+      'EM_REVISAO': {
+        color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+        emoji: '🔍',
+        label: 'Em Revisão'
+      },
+      'APROVADO': {
+        color: 'bg-green-500/20 text-green-400 border-green-500/30',
+        emoji: '✅',
+        label: 'Aprovado'
+      },
+      'ASSINADO': {
+        color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+        emoji: '✍️',
+        label: 'Assinado'
+      },
+      'CANCELADO': {
+        color: 'bg-red-500/20 text-red-400 border-red-500/30',
+        emoji: '❌',
+        label: 'Cancelado'
+      },
+      'EXPIRADO': {
+        color: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+        emoji: '⏰',
+        label: 'Expirado'
+      }
+    }
+    
+    return statusMap[status] || {
+      color: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      emoji: '📄',
+      label: status
     }
   }
 
@@ -211,10 +230,13 @@ function MeusContratos() {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:border-purple-500 transition appearance-none"
               >
-                <option value="todos">Todos os Status</option>
-                <option value="ativo">Ativos</option>
-                <option value="pendente">Pendentes</option>
-                <option value="inativo">Inativos</option>
+                <option value="todos">📋 Todos os Status</option>
+                <option value="RASCUNHO">📝 Rascunhos</option>
+                <option value="EM_REVISAO">🔍 Em Revisão</option>
+                <option value="APROVADO">✅ Aprovados</option>
+                <option value="ASSINADO">✍️ Assinados</option>
+                <option value="CANCELADO">❌ Cancelados</option>
+                <option value="EXPIRADO">⏰ Expirados</option>
               </select>
             </div>
           </div>
@@ -234,34 +256,110 @@ function MeusContratos() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredContratos.map(contrato => (
-              <div key={contrato.id} className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-gray-600 transition">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-white">{contrato.titulo}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(contrato.status)}`}>
-                        {contrato.status.charAt(0).toUpperCase() + contrato.status.slice(1)}
-                      </span>
+            {filteredContratos.map(contrato => {
+              const statusConfig = getStatusConfig(contrato.status)
+              
+              return (
+                <div key={contrato.id} className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-gray-600 transition">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-bold text-white">{contrato.titulo}</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusConfig.color}`}>
+                          {statusConfig.emoji} {statusConfig.label}
+                        </span>
+                      </div>
+                      <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400 mb-4">
+                        <div>
+                          <span className="block text-gray-500 text-xs mb-1">Tipo</span>
+                          <span className="text-white">{contrato.tipo}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-500 text-xs mb-1">Criado em</span>
+                          <span className="text-white">{new Date(contrato.dataCriacao).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-500 text-xs mb-1">Última atualização</span>
+                          <span className="text-white">{new Date(contrato.dataAtualizacao).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        Criado por: <span className="text-white">{contrato.criadoPor}</span>
+                      </div>
                     </div>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400 mb-4">
-                      <div><span className="block text-gray-500 text-xs mb-1">Tipo</span><span className="text-white">{contrato.tipo}</span></div>
-                      <div><span className="block text-gray-500 text-xs mb-1">Criado em</span><span className="text-white">{new Date(contrato.dataCriacao).toLocaleDateString('pt-BR')}</span></div>
-                      <div><span className="block text-gray-500 text-xs mb-1">Última atualização</span><span className="text-white">{new Date(contrato.dataAtualizacao).toLocaleDateString('pt-BR')}</span></div>
+                    <div className="flex items-center gap-2 ml-4">
+                      {/* Botão Visualizar */}
+                      {canView && (
+                        <button 
+                          onClick={() => handleView(contrato.id)} 
+                          className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition" 
+                          title="Visualizar"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      )}
+                      
+                      {/* Botão Download */}
+                      {canDownload && (
+                        <button 
+                          onClick={() => handleDownload(contrato)} 
+                          disabled={downloadingId === contrato.id}
+                          className={`p-2 rounded-lg transition ${
+                            downloadingId === contrato.id
+                              ? 'bg-gray-600/20 text-gray-400 cursor-wait'
+                              : 'bg-green-600/20 hover:bg-green-600/30 text-green-400'
+                          }`}
+                          title="Baixar PDF"
+                        >
+                          <Download size={18} />
+                        </button>
+                      )}
+                      
+                      {/* Botão Editar */}
+                      {canEdit && (
+                        <button 
+                          onClick={() => handleEdit(contrato.id)} 
+                          className="p-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 rounded-lg transition" 
+                          title="Editar"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
+                      
+                      {/* Botão Excluir */}
+                      {canDelete && (
+                        <button 
+                          onClick={() => handleDelete(contrato.id)} 
+                          className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition" 
+                          title="Excluir"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
-                    <div className="text-sm text-gray-400">Criado por: <span className="text-white">{contrato.criadoPor}</span></div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    {canView && <button onClick={() => handleView(contrato.id)} className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition" title="Visualizar"><Eye size={18} /></button>}
-                    {canEdit && <button onClick={() => handleEdit(contrato.id)} className="p-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 rounded-lg transition" title="Editar"><Edit2 size={18} /></button>}
-                    {canPrint && <button onClick={() => handlePrint(contrato)} className="p-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition" title="Imprimir"><Printer size={18} /></button>}
-                    {canDelete && <button onClick={() => handleDelete(contrato.id)} className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition" title="Excluir"><Trash2 size={18} /></button>}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
+
+        {/* Legenda de status */}
+        <div className="mt-6 bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+          <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-4 flex-wrap">
+            <span>📝 Rascunho</span>
+            <span className="text-gray-600">|</span>
+            <span>🔍 Em Revisão</span>
+            <span className="text-gray-600">|</span>
+            <span>✅ Aprovado</span>
+            <span className="text-gray-600">|</span>
+            <span>✍️ Assinado</span>
+            <span className="text-gray-600">|</span>
+            <span>❌ Cancelado</span>
+            <span className="text-gray-600">|</span>
+            <span>⏰ Expirado</span>
+          </p>
+        </div>
 
         {/* Permissões */}
         <div className="mt-6 bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
@@ -270,7 +368,7 @@ function MeusContratos() {
             <span className="text-white ml-2">
               {canView && '👁️ Visualizar'}
               {canEdit && ' • ✏️ Editar'}
-              {canPrint && ' • 🖨️ Imprimir'}
+              {canDownload && ' • 📥 Download'}
               {canDelete && ' • 🗑️ Deletar'}
               {canCreate && ' • ➕ Criar'}
             </span>

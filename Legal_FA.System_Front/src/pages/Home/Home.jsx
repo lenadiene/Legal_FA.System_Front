@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Edit2, Save, X, Users, FileText, LogOut, Shield, Plus, Trash2 } from 'lucide-react'
-
+import { atualizarUsuario, criarUsuarioNaEmpresa, listarUsuariosDaEmpresa, deletarUsuario, atualizarEmpresa } from '../../services/api'
+import { User, Edit2, Save, X, Users, FileText, LogOut, Shield, Plus, Trash2, Upload } from 'lucide-react'
 function Home() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
@@ -10,6 +10,18 @@ function Home() {
   const [showUsersModal, setShowUsersModal] = useState(false)
   const [usuarios, setUsuarios] = useState([])
   const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [showEditEmpresaModal, setShowEditEmpresaModal] = useState(false)
+  const [editEmpresaData, setEditEmpresaData] = useState({
+    razaoSocial: '',
+  email: '',
+  telefone: '',
+  endereco: '',
+  logoCabecalho: null,
+  logoRodape: null,
+  logoCabecalhoPreview: null,
+  logoRodapePreview: null
+  })
+  const [isEditingEmpresa, setIsEditingEmpresa] = useState(false)
   
   const [editedData, setEditedData] = useState({
     nome: '',
@@ -24,51 +36,162 @@ function Home() {
     perfil: 'estagiario'
   })
 
-  useEffect(() => {
-    // Carregar dados do localStorage
+ useEffect(() => {
+  const carregarDados = async () => {
     const token = localStorage.getItem('token')
+    const userData = localStorage.getItem('user')
     const empresaData = localStorage.getItem('empresa')
-    const usuariosData = localStorage.getItem('usuarios')
 
-    if (!token) {
-  navigate('/login')
-  return
+    if (!token || !userData) {
+      navigate('/login')
+      return
     }
 
     const parsedUser = JSON.parse(userData)
     setUser(parsedUser)
+    
     setEditedData({
       nome: parsedUser.nome || '',
-      login: parsedUser.login || parsedUser.email || '',
+      login: parsedUser.login || '',
       senha: ''
     })
 
     if (empresaData) {
-      setEmpresa(JSON.parse(empresaData))
+      const parsedEmpresa = JSON.parse(empresaData)
+      setEmpresa(parsedEmpresa)
     }
 
-    if (usuariosData) {
-      setUsuarios(JSON.parse(usuariosData))
+    // Carregar usuários da empresa (SE FOR GESTOR)
+    if (parsedUser.role === 'gestor') {
+      try {
+        const usuariosDaEmpresa = await listarUsuariosDaEmpresa(token)
+        setUsuarios(usuariosDaEmpresa)
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error)
+      }
     }
-  }, [navigate])
+  }
+
+  carregarDados()
+}, [navigate])
 
   const handleEditChange = (e) => {
     const { name, value } = e.target
     setEditedData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSaveEdit = () => {
-    const updatedUser = {
-      ...user,
-      nome: editedData.nome,
-      login: editedData.login
+  // Função para abrir o modal de edição da empresa
+const handleEditEmpresa = () => {
+  if (empresa) {
+    setEditEmpresaData({
+      razaoSocial: empresa.razaoSocial || '',
+      email: empresa.emailCorporativo || empresa.email || '',
+      telefone: empresa.telefone || '',
+      endereco: empresa.endereco || '',
+      logoCabecalho: null,
+      logoRodape: null,
+      logoCabecalhoPreview: null,
+      logoRodapePreview: null
+    })
+    setShowEditEmpresaModal(true)
+  }
+}
+
+  // Função para lidar com mudanças nos campos
+  const handleEmpresaChange = (e) => {
+    const { name, value } = e.target
+    setEditEmpresaData(prev => ({ ...prev, [name]: value }))
+  }
+
+  // Função para salvar as alterações da empresa
+  // Função para salvar as alterações da empresa
+// No handleSaveEmpresa:
+const handleSaveEmpresa = async () => {
+  setIsEditingEmpresa(true)
+  
+  try {
+    const token = localStorage.getItem('token')
+    
+    const empresaDataToSend = {
+      razaoSocial: editEmpresaData.razaoSocial,
+      email: editEmpresaData.email,
+      telefone: editEmpresaData.telefone,
+      endereco: editEmpresaData.endereco
     }
     
-    localStorage.setItem('user', JSON.stringify(updatedUser))
-    setUser(updatedUser)
-    setIsEditing(false)
-    alert('Dados atualizados com sucesso!')
+    // Adicionar logos apenas se foram selecionadas
+    if (editEmpresaData.logoCabecalho) {
+      empresaDataToSend.logoCabecalho = await convertFileToBase64(editEmpresaData.logoCabecalho)
+    }
+    
+    if (editEmpresaData.logoRodape) {
+      empresaDataToSend.logoRodape = await convertFileToBase64(editEmpresaData.logoRodape)
+    }
+    
+    const empresaAtualizada = await atualizarEmpresa(empresa.id, empresaDataToSend, token)
+    
+    console.log('✅ Empresa atualizada:', empresaAtualizada)
+    
+    // Atualizar o estado local
+    setEmpresa(empresaAtualizada)
+    
+    // Atualizar o localStorage
+    localStorage.setItem('empresa', JSON.stringify(empresaAtualizada))
+    
+    alert('✅ Dados da empresa atualizados com sucesso!')
+    setShowEditEmpresaModal(false)
+    
+  } catch (error) {
+    console.error('❌ Erro detalhado:', error)
+    alert(`❌ ${error.message}`)
+  } finally {
+    setIsEditingEmpresa(false)
   }
+}
+
+// Função auxiliar para converter arquivo para base64
+const convertFileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const base64 = reader.result.split(',')[1] // Remove o prefixo "data:image/..."
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+const handleSaveEdit = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    
+    const userDataToSend = {
+      nome: editedData.nome,
+      login: editedData.login,
+      ...(editedData.senha && { senha: editedData.senha })
+    }
+    
+    const usuarioAtualizado = await atualizarUsuario(userDataToSend, token)
+    
+    // Atualizar estado local
+    const updatedUser = {
+      ...user,
+      nome: usuarioAtualizado.nome,
+      login: usuarioAtualizado.login
+    }
+    
+    setUser(updatedUser)
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    
+    alert('✅ Dados atualizados com sucesso!')
+    setIsEditing(false)
+    
+  } catch (error) {
+    console.error('Erro:', error)
+    alert(`❌ ${error.message}`)
+  }
+}
 
   const handleCancelEdit = () => {
     setEditedData({
@@ -81,45 +204,65 @@ function Home() {
 
   const handleLogout = () => {
     localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('empresa')
+    localStorage.removeItem('usuarios')
     navigate('/login')
   }
 
-  const handleAddUser = (e) => {
-    e.preventDefault()
+ const handleAddUser = async (e) => {
+  e.preventDefault()
+  
+  try {
+    const token = localStorage.getItem('token')
     
-    const newUser = {
-      id: Date.now(),
-      ...novoUsuario,
-      empresaId: empresa?.cnpj || 'default'
+    const novoUsuarioData = {
+      nome: novoUsuario.nome,
+      login: novoUsuario.login,
+      senha: novoUsuario.senha,
+      perfil: novoUsuario.perfil.toUpperCase(), // ADMIN, GESTOR, etc
+      empresaId: user.empresaId
     }
-
-    const updatedUsuarios = [...usuarios, newUser]
-    setUsuarios(updatedUsuarios)
-    localStorage.setItem('usuarios', JSON.stringify(updatedUsuarios))
     
-    setNovoUsuario({
-      nome: '',
-      login: '',
-      senha: '',
-      perfil: 'estagiario'
-    })
+    await criarUsuarioNaEmpresa(novoUsuarioData, token)
+    
+    // Recarregar lista
+    const usuariosAtualizados = await listarUsuariosDaEmpresa(token)
+    setUsuarios(usuariosAtualizados)
+    
+    alert('✅ Usuário criado com sucesso!')
+    setNovoUsuario({ nome: '', login: '', senha: '', perfil: 'ESTAGIARIO' })
     setShowAddUserModal(false)
-    alert('Usuário adicionado com sucesso!')
+    
+  } catch (error) {
+    console.error('Erro:', error)
+    alert(`❌ ${error.message}`)
   }
+}
 
-  const handleDeleteUser = (userId) => {
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-      const updatedUsuarios = usuarios.filter(u => u.id !== userId)
-      setUsuarios(updatedUsuarios)
-      localStorage.setItem('usuarios', JSON.stringify(updatedUsuarios))
-      alert('Usuário excluído com sucesso!')
-    }
+const handleDeleteUser = async (usuarioId) => {
+  if (!window.confirm('Tem certeza que deseja excluir este usuário?')) return
+
+  try {
+    const token = localStorage.getItem('token')
+    await deletarUsuario(usuarioId, token)
+    
+    // Recarregar lista
+    const usuariosAtualizados = await listarUsuariosDaEmpresa(token)
+    setUsuarios(usuariosAtualizados)
+    
+    alert('✅ Usuário excluído com sucesso!')
+  } catch (error) {
+    console.error('Erro:', error)
+    alert(`❌ ${error.message}`)
   }
+}
 
   // Verificar permissões
   const canManageUsers = user?.role === 'admin' || user?.role === 'gestor' || user?.isRepresentante
   const canViewAllData = user?.role === 'admin' || user?.role === 'gestor'
-
+  const canEditEmpresa = user?.role === 'gestor'
+  
   if (!user) return null
 
   return (
@@ -248,7 +391,7 @@ function Home() {
                 <p className="text-white font-medium capitalize">
                   {user.role === 'admin' && '🔐 Administrador'}
                   {user.role === 'gestor' && '👔 Gestor'}
-                  {user.isRepresentante && '⭐ Representante'}
+                  {user.isRepresentante && ' ⭐ Representante'}
                   {user.role === 'analista' && '📊 Analista'}
                   {user.role === 'estagiario' && '📚 Estagiário'}
                 </p>
@@ -294,7 +437,21 @@ function Home() {
         {/* Informações da Empresa - Apenas Admin e Gestor */}
         {canViewAllData && empresa && (
           <div className="mt-6 bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Informações da Empresa</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">Informações da Empresa</h3>
+              
+              {/* Botão Editar Empresa - APENAS PARA GESTORES */}
+              {canEditEmpresa && (
+                <button
+                  onClick={handleEditEmpresa}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition"
+                >
+                  <Edit2 size={18} />
+                  <span className="text-sm">Editar Empresa</span>
+                </button>
+              )}
+            </div>
+            
             <div className="grid md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Razão Social</label>
@@ -305,12 +462,201 @@ function Home() {
                 <p className="text-white font-medium">{empresa.cnpj}</p>
               </div>
               <div>
+                <label className="block text-sm text-gray-400 mb-1">Email</label>
+                <p className="text-white font-medium">{empresa.emailCorporativo || empresa.email}</p>
+              </div>
+              <div>
                 <label className="block text-sm text-gray-400 mb-1">Telefone</label>
                 <p className="text-white font-medium">{empresa.telefone}</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm text-gray-400 mb-1">Endereço</label>
+                <p className="text-white font-medium">{empresa.endereco}</p>
               </div>
             </div>
           </div>
         )}
+
+        {/* Modal de Editar Empresa */}
+        {/* Modal de Editar Empresa */}
+{showEditEmpresaModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full border border-gray-700 max-h-[90vh] overflow-y-auto">
+      
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-white">Editar Dados da Empresa</h2>
+        <button
+          onClick={() => setShowEditEmpresaModal(false)}
+          className="text-gray-400 hover:text-white transition"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); handleSaveEmpresa(); }} className="space-y-4">
+        
+        {/* Grid 2 colunas para campos de texto */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Razão Social</label>
+            <input
+              type="text"
+              name="razaoSocial"
+              required
+              value={editEmpresaData.razaoSocial}
+              onChange={handleEmpresaChange}
+              className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Email Corporativo</label>
+            <input
+              type="email"
+              name="email"
+              required
+              value={editEmpresaData.email}
+              onChange={handleEmpresaChange}
+              className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Telefone</label>
+            <input
+              type="text"
+              name="telefone"
+              value={editEmpresaData.telefone}
+              onChange={handleEmpresaChange}
+              className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              placeholder="(11) 99999-9999"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Endereço</label>
+            <input
+              type="text"
+              name="endereco"
+              value={editEmpresaData.endereco}
+              onChange={handleEmpresaChange}
+              className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              placeholder="Rua Exemplo, 123 - Centro"
+            />
+          </div>
+        </div>
+
+        {/* SEÇÃO DE LOGOS - Mesmo estilo da tela de cadastro */}
+        <div className="border-t border-gray-700 my-6 pt-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Logos da Empresa</h3>
+          <p className="text-sm text-gray-400 mb-4">Se não quiser alterar, deixe os campos em branco</p>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            
+            {/* Logo Cabeçalho */}
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Logo do Cabeçalho</label>
+              <div className="border-2 border-dashed border-gray-600 rounded-xl p-4 hover:border-purple-500 transition cursor-pointer bg-gray-700/30">
+                <input
+                  type="file"
+                  id="editLogoCabecalho"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) {
+                      setEditEmpresaData(prev => ({ ...prev, logoCabecalho: file }))
+                      const reader = new FileReader()
+                      reader.onloadend = () => {
+                        setEditEmpresaData(prev => ({ ...prev, logoCabecalhoPreview: reader.result }))
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                  className="hidden"
+                />
+                <label htmlFor="editLogoCabecalho" className="cursor-pointer flex flex-col items-center">
+                  {editEmpresaData.logoCabecalhoPreview ? (
+                    <img src={editEmpresaData.logoCabecalhoPreview} alt="Logo Cabeçalho" className="h-20 object-contain mb-2" />
+                  ) : empresa?.logoCabecalho ? (
+                    <div className="text-center">
+                      <img src={empresa.logoCabecalho} alt="Logo atual" className="h-20 object-contain mb-2 opacity-50" />
+                      <p className="text-xs text-gray-400">Logo atual (clique para substituir)</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-400 text-center">Clique para fazer upload</p>
+                      <p className="text-xs text-gray-500 mt-1">Deixe em branco para manter a atual</p>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            {/* Logo Rodapé */}
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Logo do Rodapé</label>
+              <div className="border-2 border-dashed border-gray-600 rounded-xl p-4 hover:border-purple-500 transition cursor-pointer bg-gray-700/30">
+                <input
+                  type="file"
+                  id="editLogoRodape"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) {
+                      setEditEmpresaData(prev => ({ ...prev, logoRodape: file }))
+                      const reader = new FileReader()
+                      reader.onloadend = () => {
+                        setEditEmpresaData(prev => ({ ...prev, logoRodapePreview: reader.result }))
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                  className="hidden"
+                />
+                <label htmlFor="editLogoRodape" className="cursor-pointer flex flex-col items-center">
+                  {editEmpresaData.logoRodapePreview ? (
+                    <img src={editEmpresaData.logoRodapePreview} alt="Logo Rodapé" className="h-20 object-contain mb-2" />
+                  ) : empresa?.logoRodape ? (
+                    <div className="text-center">
+                      <img src={empresa.logoRodape} alt="Logo atual" className="h-20 object-contain mb-2 opacity-50" />
+                      <p className="text-xs text-gray-400">Logo atual (clique para substituir)</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-400 text-center">Clique para fazer upload</p>
+                      <p className="text-xs text-gray-500 mt-1">Deixe em branco para manter a atual</p>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Botões */}
+        <div className="flex gap-3 mt-6">
+          <button
+            type="button"
+            onClick={() => setShowEditEmpresaModal(false)}
+            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-6 py-3 font-semibold transition"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isEditingEmpresa}
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 py-3 font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Save size={18} />
+            {isEditingEmpresa ? 'Salvando...' : 'Salvar Alterações'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       </main>
 
       {/* Modal de Usuários */}

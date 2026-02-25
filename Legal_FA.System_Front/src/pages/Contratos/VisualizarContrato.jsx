@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Printer, Edit2 } from 'lucide-react'
+import { ArrowLeft, Download, Edit2 } from 'lucide-react'
+import { buscarContrato } from '../../services/api'
 
 function VisualizarContrato() {
   const navigate = useNavigate()
@@ -9,47 +10,71 @@ function VisualizarContrato() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
-    // Verificar autenticação
     const userData = localStorage.getItem('user')
+
     if (!userData) {
       navigate('/login')
       return
     }
-    setUser(JSON.parse(userData))
 
-    // Carregar contrato
-    const contratos = JSON.parse(localStorage.getItem('contratos') || '[]')
-    const contratoEncontrado = contratos.find(c => c.id === parseInt(id))
-    
-    if (contratoEncontrado) {
-      setContrato(contratoEncontrado)
-    } else {
-      alert('Contrato não encontrado!')
-      navigate('/contratos')
+    const parsedUser = JSON.parse(userData)
+    setUser(parsedUser)
+
+    async function carregarContrato() {
+      try {
+        const token = localStorage.getItem('token')
+        const data = await buscarContrato(id, token)
+        setContrato(data)
+      } catch (error) {
+        console.error(error)
+        alert('Contrato não encontrado ou acesso negado')
+        navigate('/contratos')
+      }
     }
+
+    carregarContrato()
   }, [id, navigate])
 
-  const handlePrint = () => {
-    window.print()
-  }
+  if (!contrato) return null
 
+  const dados = contrato.dados || {}
+
+  // Verificar permissões
+  const canEdit = user?.role !== 'estagiario'
+  
   const handleEdit = () => {
     navigate(`/contratos/${id}/editar`)
   }
 
-  if (!contrato) return null
+  // Função para formatar data
+  function formatarDataBR(dataISO) {
+    if (!dataISO) return ''
+    
+    // Se já está no formato DD/MM/YYYY, retorna como está
+    if (dataISO.includes('/')) return dataISO
+    
+    // Se está no formato ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss)
+    try {
+      const [ano, mes, dia] = dataISO.split('T')[0].split('-')
+      return `${dia}/${mes}/${ano}`
+    } catch (error) {
+      console.error('Erro ao formatar data:', dataISO)
+      return dataISO
+    }
+  }
 
-  const dados = contrato?.dados || {}
-
-
-  // Verificar permissões
-  const canEdit = user?.role !== 'estagiario'
+  // Redirecionar para página de PDF
+  const handleDownloadPDF = () => {
+    navigate(`/contratos/${id}/pdf`, { 
+      state: { from: `/contratos/${id}` } 
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       
-      {/* Header - Não imprime */}
-      <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-10 print:hidden">
+      {/* Header */}
+      <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <button
             onClick={() => navigate('/contratos')}
@@ -70,32 +95,30 @@ function VisualizarContrato() {
               </button>
             )}
             <button
-              onClick={handlePrint}
+              onClick={handleDownloadPDF}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
             >
-              <Printer size={18} />
-              Imprimir
+              <Download size={18} />
+              Download de PDF
             </button>
           </div>
         </div>
       </header>
 
-      {/* Conteúdo para Impressão */}
-      <main className="max-w-5xl mx-auto px-6 py-8 print:px-0 print:py-0">
-        
-        {/* Layout Legal Design */}
-        <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none">
+      {/* Conteúdo */}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl shadow-2xl overflow-hidden">
           
           {/* Header com Logo */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-12 py-8 flex items-center justify-between print:bg-none print:border-b-4 print:border-purple-600">
-            <div className="text-white text-2xl font-bold print:text-gray-900">Logo</div>
-            <h1 className="text-3xl font-bold text-white text-center flex-1 print:text-gray-900">
+          <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-12 py-8 flex items-center justify-between">
+            <div className="text-white text-2xl font-bold">Logo</div>
+            <h1 className="text-3xl font-bold text-white text-center flex-1">
               CONTRATO DE PRESTAÇÃO DE SERVIÇOS
             </h1>
           </div>
 
           {/* Conteúdo */}
-          <div className="px-12 py-8 space-y-8 print:px-8">
+          <div className="px-12 py-8 space-y-8">
             
             {/* Cards Contratante e Prestador */}
             <div className="grid md:grid-cols-2 gap-6">
@@ -135,7 +158,7 @@ function VisualizarContrato() {
             <div className="border-l-4 border-purple-500 pl-6 py-2">
               <h2 className="text-xl font-bold text-purple-700 mb-3">02. Vigência e Prazos</h2>
               <p className="text-gray-700 mb-4">
-                O serviço terá início em <strong>{new Date(dados.data_inicio).toLocaleDateString('pt-BR')}</strong> e conclusão prevista para <strong>{new Date(dados.data_fim).toLocaleDateString('pt-BR')}</strong>.
+                O serviço terá início em <strong>{formatarDataBR(dados.data_inicio)}</strong> e conclusão prevista para <strong>{formatarDataBR(dados.data_fim)}</strong>.
               </p>
               <p className="text-sm text-gray-600 italic">Caso seja necessário prorrogar, as partes devem concordar por escrito.</p>
             </div>
@@ -210,7 +233,7 @@ function VisualizarContrato() {
               <div className="text-center mb-8">
                 <p className="text-gray-700">
                   <strong>Cidade:</strong> {dados.cidade_assinatura} | 
-                  <strong> Data:</strong> {new Date(dados.data_assinatura).toLocaleDateString('pt-BR')}
+                  <strong> Data:</strong> {formatarDataBR(dados.data_assinatura)}
                 </p>
               </div>
 
@@ -232,54 +255,13 @@ function VisualizarContrato() {
           </div>
 
           {/* Footer */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-12 py-4 text-center mt-8 print:bg-none print:border-t-2 print:border-purple-600">
-            <p className="text-white text-xs print:text-gray-900">
-              Documento elaborado sob princípios de Legal Design | Página 1
+          <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-12 py-4 text-center mt-8">
+            <p className="text-white text-xs">
+              Documento elaborado sob princípios de Legal Design
             </p>
           </div>
         </div>
       </main>
-
-      {/* CSS para Impressão */}
-      <style>{`
-        @media print {
-          body {
-            background: white !important;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-          .print\\:px-0 {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-          }
-          .print\\:py-0 {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-          }
-          .print\\:shadow-none {
-            box-shadow: none !important;
-          }
-          .print\\:rounded-none {
-            border-radius: 0 !important;
-          }
-          .print\\:text-gray-900 {
-            color: #111827 !important;
-          }
-          .print\\:bg-none {
-            background: none !important;
-          }
-          .print\\:border-b-4 {
-            border-bottom-width: 4px !important;
-          }
-          .print\\:border-purple-600 {
-            border-color: #9333ea !important;
-          }
-          .print\\:border-t-2 {
-            border-top-width: 2px !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }

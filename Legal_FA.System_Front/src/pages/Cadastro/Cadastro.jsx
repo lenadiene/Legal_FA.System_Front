@@ -114,25 +114,57 @@ const handleSubmit = async (e) => {
     console.log('📤 Registrando representante...')
     
     await registrarUsuario({
-      nome: representanteData.nome,
+      nome: representanteData.nome,  // ← ISSO SERÁ ENVIADO COMO nomeCompleto NO api.js
       login: representanteData.login,
       senha: representanteData.senha
     }, empresaId)
     
     console.log('✅ Representante registrado!')
 
-    // Salvar dados localmente
-    localStorage.setItem('empresa', JSON.stringify({
-      id: empresaId,
-      ...empresaCriada
+    // PASSO 3: Fazer login automático para obter token
+    console.log('📤 Fazendo login automático...')
+    
+    const loginResponse = await fetch('http://localhost:8080/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        login: representanteData.login,
+        senha: representanteData.senha
+      })
+    })
+
+    if (!loginResponse.ok) {
+      throw new Error('Erro ao fazer login automático')
+    }
+
+    const loginData = await loginResponse.json()
+    
+    console.log('✅ Login automático realizado!')
+    
+    // Salvar token
+    localStorage.setItem('token', loginData.token)
+    
+    // Salvar dados do usuário completos
+    localStorage.setItem('user', JSON.stringify({
+      id: loginData.usuario.id,
+      login: loginData.usuario.login,
+      nome: loginData.usuario.funcionario.nome,
+      role: loginData.usuario.perfil.toLowerCase(),
+      funcionarioId: loginData.usuario.funcionario.id,
+      empresaId: loginData.usuario.funcionario.empresa.id,
+      isRepresentante: true  // Primeiro usuário é sempre representante
     }))
     
-    localStorage.setItem('user', JSON.stringify({
-      nome: representanteData.nome,
-      login: representanteData.login,
-      role: 'gestor',
-      isRepresentante: true,
-      empresaId: empresaId
+    // Salvar dados da empresa
+    localStorage.setItem('empresa', JSON.stringify({
+      id: loginData.usuario.funcionario.empresa.id,
+      razaoSocial: loginData.usuario.funcionario.empresa.razaoSocial,
+      cnpj: loginData.usuario.funcionario.empresa.cnpj,
+      emailCorporativo: loginData.usuario.funcionario.empresa.emailCorporativo,
+      telefone: loginData.usuario.funcionario.empresa.telefone,
+      endereco: loginData.usuario.funcionario.empresa.endereco
     }))
     
     alert('✅ Cadastro realizado com sucesso!')

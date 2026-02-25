@@ -11,24 +11,68 @@ function Login() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setIsLoading(true)
-
-    try {
-      const token = await login({
-        email: username,
-        password: password
+const handleSubmit = async (event) => {
+  event.preventDefault()
+  setIsLoading(true)
+  
+  try {
+    console.log('📤 Fazendo login...')
+    
+    // Chamar API de login
+    const response = await fetch('http://localhost:8080/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        login: username,
+        senha: password
       })
+    })
 
-      localStorage.setItem('token', token)
-      navigate('/home')
-    } catch (error) {
-      alert('Login ou senha inválidos')
-    } finally {
-      setIsLoading(false)
+    if (!response.ok) {
+      throw new Error('Credenciais inválidas')
     }
+
+    const data = await response.json()
+    
+    console.log('✅ Login realizado!')
+    console.log('📦 Dados recebidos:', data)
+    
+    // Salvar token
+    localStorage.setItem('token', data.token)
+    
+    // Salvar dados do usuário completos
+    localStorage.setItem('user', JSON.stringify({
+      id: data.usuario.id,
+      login: data.usuario.login,
+      nome: data.usuario.funcionario.nome,
+      role: data.usuario.perfil.toLowerCase(), // GESTOR → gestor
+      funcionarioId: data.usuario.funcionario.id,
+      empresaId: data.usuario.funcionario.empresa.id,
+      isRepresentante: data.usuario.role === 'GESTOR'
+    }))
+    
+    // Salvar dados da empresa
+    localStorage.setItem('empresa', JSON.stringify({
+      id: data.usuario.funcionario.empresa.id,
+      razaoSocial: data.usuario.funcionario.empresa.razaoSocial,
+      cnpj: data.usuario.funcionario.empresa.cnpj,
+      emailCorporativo: data.usuario.funcionario.empresa.emailCorporativo,
+      telefone: data.usuario.funcionario.empresa.telefone,
+      endereco: data.usuario.funcionario.empresa.endereco
+    }))
+    
+    alert('Login realizado com sucesso!')
+    navigate('/home')
+    
+  } catch (error) {
+    console.error('❌ Erro no login:', error)
+    alert('Erro: Email ou senha inválidos')
+  } finally {
+    setIsLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4 relative">

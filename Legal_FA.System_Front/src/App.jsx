@@ -7,7 +7,7 @@ import MeusContratos from './pages/Contratos/MeusContratos'
 import NovoContrato from './pages/Contratos/NovoContrato'
 import VisualizarContrato from './pages/Contratos/VisualizarContrato'
 import EditarContrato from './pages/Contratos/EditarContrato'
-
+import ContratoPDF from './pages/Contratos/ContratoPDF' 
 function App() {
   return (
     <BrowserRouter>
@@ -20,6 +20,7 @@ function App() {
         <Route path="/contratos/novo" element={<NovoContrato />} />
         <Route path="/contratos/:id" element={<VisualizarContrato />} />
         <Route path="/contratos/:id/editar" element={<EditarContrato />} />
+        <Route path="/contratos/:id/pdf" element={<ContratoPDF />} />
       </Routes>
     </BrowserRouter>
   )

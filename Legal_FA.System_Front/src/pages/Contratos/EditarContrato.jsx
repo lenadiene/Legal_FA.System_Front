@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Eye } from 'lucide-react'
-
+import { buscarContrato, atualizarContrato, atualizarStatusContrato } from '../../services/api'
 function EditarContrato() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -9,66 +9,179 @@ function EditarContrato() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [contratoData, setContratoData] = useState(null)
+  
+  const [statusAtualizado, setStatusAtualizado] = useState(false)
 
-  useEffect(() => {
-    // Verificar autenticação
-    const userData = localStorage.getItem('user')
-    if (!userData) {
-      navigate('/login')
-      return
-    }
+useEffect(() => {
+  const userData = localStorage.getItem('user')
+  const token = localStorage.getItem('token')
 
-    const parsedUser = JSON.parse(userData)
-    
-    // Verificar se é estagiário (não pode editar)
-    if (parsedUser.role === 'estagiario') {
-      alert('Você não tem permissão para editar contratos.')
+  if (!userData || !token) {
+    navigate('/login')
+    return
+  }
+
+  const parsedUser = JSON.parse(userData)
+
+  if (parsedUser.role === 'estagiario') {
+    alert('Você não tem permissão para editar contratos.')
+    navigate('/contratos')
+    return
+  }
+
+  setUser(parsedUser)
+
+  async function carregarContrato() {
+    try {
+      const response = await buscarContrato(id, token)
+      
+      // 🔍 Log para ver o formato dos dados recebidos
+      console.log('📥 Dados recebidos do backend:', response)
+      
+      // Mapeia os dados para o formato do formulário
+// Se response for o ContratoDTO, extrair os dados
+      if (response) {
+        setContratoData({
+          // Campos do próprio contrato
+          titulo: response.titulo || '',
+          status: response.status || 'RASCUNHO',
+          empresaId: response.empresaId || parsedUser.empresaId,
+          templateId: response.templateId || 1,
+          funcionarioResponsavelId: response.funcionarioResponsavelId || parsedUser.funcionarioId,
+          
+          // Campos dentro de 'dados'
+          nome_empresa: response.dados?.nome_empresa || '',
+          cnpj_empresa: response.dados?.cnpj_empresa || '',
+          endereco_empresa: response.dados?.endereco_empresa || '',
+          nome_prestador: response.dados?.nome_prestador || '',
+          documento_prestador: response.dados?.documento_prestador || '',
+          endereco_prestador: response.dados?.endereco_prestador || '',
+          descricao_servico: response.dados?.descricao_servico || '',
+          data_inicio: response.dados?.data_inicio || '',
+          data_fim: response.dados?.data_fim || '',
+          valor_total: response.dados?.valor_total || '',
+          multa_atraso: response.dados?.multa_atraso || '',
+          forma_pagamento: response.dados?.forma_pagamento || '',
+          prazo_pagamento: response.dados?.prazo_pagamento || '',
+          obrigacoes_prestador: response.dados?.obrigacoes_prestador || '',
+          obrigacoes_contratante: response.dados?.obrigacoes_contratante || '',
+          clausula_confidencialidade: response.dados?.clausula_confidencialidade || '',
+          condicoes_rescisao: response.dados?.condicoes_rescisao || '',
+          cidade_foro: response.dados?.cidade_foro || '',
+          cidade_assinatura: response.dados?.cidade_assinatura || '',
+          data_assinatura: response.dados?.data_assinatura || ''
+        })
+        // Guarda o status original para comparação
+        setStatusAtualizado(response.status)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contrato:', error)
+      alert('Erro ao carregar contrato')
       navigate('/contratos')
-      return
     }
+  }
 
-    setUser(parsedUser)
-
-    // Carregar contrato
-    const contratos = JSON.parse(localStorage.getItem('contratos') || '[]')
-    const contrato = contratos.find(c => c.id === parseInt(id))
-    
-    if (contrato) {
-      setContratoData(contrato.dados)
-    } else {
-      alert('Contrato não encontrado!')
-      navigate('/contratos')
-    }
-  }, [id, navigate])
+  carregarContrato()
+}, [id, navigate])
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setContratoData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
 
     // Atualizar contrato
-    const contratos = JSON.parse(localStorage.getItem('contratos') || '[]')
-    const index = contratos.findIndex(c => c.id === parseInt(id))
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  setIsLoading(true)
+
+  try {
+    const token = localStorage.getItem('token')
     
-    if (index !== -1) {
-      contratos[index] = {
-        ...contratos[index],
-        dataAtualizacao: new Date().toISOString().split('T')[0],
-        dados: contratoData
+    // LOG PARA VER O QUE ESTÁ SENDO ENVIADO
+    console.log('📦 Dados a serem enviados:', contratoData)
+    console.log('🔑 Token:', token)
+    console.log('📌 ID do contrato:', id)
+      
+    // 📦 Payload no formato CriarContratoDTO que o backend espera
+    const payload = {
+      empresaId: user.empresaId, // PEGAR DO localStorage
+      templateId: 1, // Ou o template usado originalmente
+      funcionarioResponsavelId: user.funcionarioId, // PEGAR DO localStorage
+      titulo: contratoData.titulo || "Contrato de Prestação de Serviços",
+      dados: {
+        nome_empresa: contratoData.nome_empresa,
+        cnpj_empresa: contratoData.cnpj_empresa,
+        endereco_empresa: contratoData.endereco_empresa,
+        nome_prestador: contratoData.nome_prestador,
+        documento_prestador: contratoData.documento_prestador,
+        endereco_prestador: contratoData.endereco_prestador,
+        descricao_servico: contratoData.descricao_servico,
+        data_inicio: contratoData.data_inicio,
+        data_fim: contratoData.data_fim,
+        valor_total: contratoData.valor_total,
+        multa_atraso: contratoData.multa_atraso,
+        forma_pagamento: contratoData.forma_pagamento,
+        prazo_pagamento: contratoData.prazo_pagamento,
+        obrigacoes_prestador: contratoData.obrigacoes_prestador,
+        obrigacoes_contratante: contratoData.obrigacoes_contratante,
+        clausula_confidencialidade: contratoData.clausula_confidencialidade,
+        condicoes_rescisao: contratoData.condicoes_rescisao,
+        cidade_foro: contratoData.cidade_foro,
+        cidade_assinatura: contratoData.cidade_assinatura,
+        data_assinatura: contratoData.data_assinatura
       }
-      localStorage.setItem('contratos', JSON.stringify(contratos))
     }
 
-    setTimeout(() => {
-      setIsLoading(false)
-      alert('Contrato atualizado com sucesso!')
-      navigate('/contratos')
-    }, 1000)
+    console.log('📤 Enviando payload:', payload)
+
+    // PASSO 1: Atualizar dados principais do contrato
+    const response = await atualizarContrato(id, payload, token)
+    console.log('📥 Resposta do servidor (dados):', response)
+ // PASSO 2: Verificar se o status mudou
+    if (response.status !== contratoData.status) {
+      console.log('⚠️ Status diferente, tentando atualização separada...')
+      console.log(`Status original: ${response.status}, Novo status: ${contratoData.status}`) 
+      try {
+      // Usar o novo endpoint para atualizar apenas o status
+        const statusResponse = await atualizarStatusContrato(id, contratoData.status, token)
+        console.log('✅ Status atualizado com sucesso:', statusResponse)
+        
+        alert('✅ Contrato e status atualizados com sucesso!')
+      } catch (statusError) {
+        console.error('❌ Erro ao atualizar status:', statusError)
+        
+        // Mensagem amigável se o endpoint não existir no backend
+        if (statusError.message.includes('404')) {
+          alert(
+            '✅ Contrato atualizado!\n\n' +
+            '⚠️ O endpoint para atualizar status não está disponível no backend.\n' +
+            `Status atual: ${response.status}\n` +
+            'Entre em contato com o suporte para alterar o status.'
+          )
+        } else {
+          alert(
+            '✅ Contrato atualizado, mas o status não pôde ser alterado.\n\n' +
+            `Status atual: ${response.status}\n` +
+            `Erro: ${statusError.message}`
+          )
+        }
+      }
+    } else {
+      alert('✅ Contrato atualizado com sucesso! (status permaneceu o mesmo)')
+    }
+    
+    navigate('/contratos')
+
+  } catch (error) {
+    console.error('❌ Erro detalhado:', error)
+    alert(`❌ Erro ao salvar contrato: ${error.message}`)
+  } finally {
+    setIsLoading(false)
   }
+}
+
+  
 
   if (!contratoData || !user) return null
 
@@ -112,6 +225,26 @@ function EditarContrato() {
                 ✏️ Editar Contrato
               </h1>
               <p className="text-gray-400">Modifique os campos necessários</p>
+                          {/* ⭐ NOVO CAMPO DE STATUS ACIMA DO FORMULÁRIO */}
+              <div className="mt-6 max-w-md mx-auto">
+                <label className="block text-sm text-gray-300 mb-2 text-left">Status do Contrato</label>
+                <select
+  name="status"
+  value={contratoData.status || 'RASCUNHO'}
+  onChange={handleChange}
+  className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+>
+  <option value="RASCUNHO">📝 Rascunho</option>
+  <option value="EM_REVISAO">🔍 Em Revisão</option>
+  <option value="APROVADO">✅ Aprovado</option>  {/* ← MUDOU DE ATIVO PARA APROVADO */}
+  <option value="ASSINADO">✍️ Assinado</option>
+  <option value="CANCELADO">❌ Cancelado</option>
+  <option value="EXPIRADO">⏰ Expirado</option>
+</select>
+                <p className="text-xs text-gray-500 text-left mt-1">
+                  Altere o status para controlar o ciclo de vida do contrato
+                </p>
+              </div>
             </div>
 
             {/* Seção 1: Contratante */}
