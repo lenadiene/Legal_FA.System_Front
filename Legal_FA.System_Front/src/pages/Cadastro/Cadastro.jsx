@@ -91,6 +91,12 @@ const handleSubmit = async (e) => {
     return
   }
   
+// Validar senha antes de enviar
+  if (!validarSenha(representanteData.senha)) {
+    alert('A senha não atende aos requisitos de segurança!')
+    return
+  }
+  
   setIsLoading(true)
   
   try {
@@ -113,11 +119,13 @@ const handleSubmit = async (e) => {
     // PASSO 2: Registrar Representante
     console.log('📤 Registrando representante...')
     
-    await registrarUsuario({
-      nome: representanteData.nome,  // ← ISSO SERÁ ENVIADO COMO nomeCompleto NO api.js
+        await registrarUsuario({
       login: representanteData.login,
-      senha: representanteData.senha
-    }, empresaId)
+      senha: representanteData.senha,
+      role: "GESTOR", // Primeiro usuário é ADMIN
+      nomeCompleto: representanteData.nome, // ← Agora enviando como nomeCompleto
+      empresaId: empresaId
+    })
     
     console.log('✅ Representante registrado!')
 

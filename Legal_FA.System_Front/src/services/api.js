@@ -36,30 +36,42 @@ export const login = async (loginData) => {
 /**
  * Registrar novo usuário (Representante)
  */
-export const registrarUsuario = async (representanteData, empresaId) => {
+export const registrarUsuario = async (userData) => {  // ← UM ÚNICO OBJETO
   try {
+    console.log('📤 Registrando usuário com dados:', {
+      login: userData.login,
+      nomeCompleto: userData.nomeCompleto,
+      empresaId: userData.empresaId,
+      role: userData.role
+    })
+
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        login: representanteData.login,
-        senha: representanteData.senha,
-        role: 'GESTOR',
-        nomeCompleto: representanteData.nome,
-        empresaId: empresaId
+        login: userData.login,
+        senha: userData.senha,
+        role: userData.role || "GESTOR",  // ← Use o valor passado ou padrão
+        nomeCompleto: userData.nomeCompleto,
+        empresaId: userData.empresaId
       })
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error || 'Erro ao registrar usuário')
+      const errorText = await response.text()
+      console.error('❌ Erro do servidor:', errorText)
+      throw new Error(errorText || 'Erro ao registrar usuário')
     }
 
-    return true
+    // O endpoint /register retorna void (204 No Content)
+    // Por isso não precisa fazer response.json()
+    console.log('✅ Usuário registrado com sucesso!')
+    return { success: true }
+
   } catch (error) {
-    console.error('Erro ao registrar:', error)
+    console.error('❌ Erro ao registrar:', error)
     throw error
   }
 }
